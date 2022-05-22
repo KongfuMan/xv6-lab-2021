@@ -658,3 +658,17 @@ procdump(void)
     printf("\n");
   }
 }
+
+uint64
+countUsedProc(){
+  int count = 0;
+  acquire(&pid_lock);
+  for (int i = 0; i < NPROC; i++){
+    struct proc curr = proc[i];
+    if (curr.state != UNUSED){
+      count++;
+    }
+  }
+  release(&pid_lock);
+  return count;
+}
