@@ -95,3 +95,15 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_trace(void){
+  // save the mask into the process struct before execute the syscall
+  int mask;
+  if(argint(0, &mask) < 0){
+    printf("Read argument error");
+    return -1;
+  }
+  myproc()->mask = mask;
+  return 0;
+}
