@@ -84,13 +84,21 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
     panic("walk");
 
   for(int level = 2; level > 0; level--) {
+    // PX(level, va) = ((((uint64) (va)) >> PXSHIFT(level)) & PXMASK)
+    // is the index of level page table
+    // &pagetable is the starting physical addr of page table
+    // pte is the addr of pointed by index
     pte_t *pte = &pagetable[PX(level, va)];
     if(*pte & PTE_V) {
+      // go to the next level page table that pte points to
+      // PTE2PA(pte) = (((pte) >> 10) << 12)
       pagetable = (pagetable_t)PTE2PA(*pte);
     } else {
+      // if pte is empty then create a next level page table
       if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)
         return 0;
       memset(pagetable, 0, PGSIZE);
+      // allocate a 
       *pte = PA2PTE(pagetable) | PTE_V;
     }
   }
@@ -446,7 +454,7 @@ void helper(pagetable_t pagetable, int depth){
     pte_t pte = pagetable[i]; 
     if(pte & PTE_V){
       // print valid pte
-      printf("%s%d: pte %p pa %p\n", prefix, i, &pte, PTE2PA(pte));
+      printf("%s%d: pte %p pa %p\n", prefix, i, pte, PTE2PA(pte));
       if ((pte & (PTE_R|PTE_W|PTE_X)) == 0) {
         // this PTE points to a lower-level page table.
         uint64 child = PTE2PA(pte);
@@ -459,6 +467,6 @@ void helper(pagetable_t pagetable, int depth){
 void
 vmprint(pagetable_t pagetable){
   // there are 2^9 = 512 PTEs in a page table.
-  printf("page table %p\n", &pagetable);
+  printf("page table %p\n", pagetable);
   helper(pagetable, 1);
 }

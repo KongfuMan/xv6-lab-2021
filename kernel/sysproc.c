@@ -81,6 +81,41 @@ int
 sys_pgaccess(void)
 {
   // lab pgtbl: your code here.
+  uint64 base;
+  int page_num;
+  uint64 user_bitmask_addr;
+  if (argaddr(0, &base) < 0 ||  argint(1, &page_num) < 0 || argaddr(2, &user_bitmask_addr) < 0){
+    printf("Get paramemters error for sys_pgaccess function.\n");
+    return -1;
+  }
+  if(page_num < 0 || page_num > 32){
+    printf("Illegal page number should be [0, 32], but actually: %d.\n", page_num);
+    return -1;
+  }
+  
+  uint32 mask = 0;
+  pte_t *pte;
+  struct proc* p = myproc();
+  for (int i = 0; i < page_num; i++){
+    if(base >= MAXVA)
+      return -1;
+    
+    pte = walk(p->pagetable, base, 0);
+    if(pte == 0){
+      panic("pgaccess: pte should exist");
+    }
+
+    if(*pte & PTE_A){
+      mask |= (1 << i);
+      // Be sure to clear PTE_A after checking if it is set.
+      *pte &= (~PTE_A);
+    }
+    base += PGSIZE;
+  }
+  
+  if(copyout(p->pagetable, user_bitmask_addr, (char*)&mask, sizeof(mask)) < 0){
+    return -1;
+  }  
   return 0;
 }
 #endif
