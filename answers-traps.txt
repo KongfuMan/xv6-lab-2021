@@ -1,0 +1,10 @@
+1. Which registers contain arguments to functions? 
+   a0,a1,a2,a3,a4,a5
+
+
+
+3.At what address is the function printf located?
+  0x0000000000000630
+
+4.What value is in the register ra just after the jalr to printf in main?
+  

@@ -105,4 +105,9 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  int ticks;                   // Count of CPU tick this proc used
+  int interval;                // Number of ticks that trigger the handler execution
+  uint64 handler;              // Handler that will be executed when ticks == trigger_tick_cnt
+  struct trapframe * prev_trapframe;
 };
