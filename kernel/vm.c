@@ -301,22 +301,26 @@ int
 uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 {
   pte_t *pte;
-  uint64 pa, i;
+  uint64 i;
   uint flags;
-  char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
       panic("uvmcopy: pte should exist");
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
-    pa = PTE2PA(*pte);
+    
+    uint64 pa = PTE2PA(*pte);
+    inc_ref((void*)pa);//increment the ref count of phyiscal memory page  by 1.
+
+    *pte &= ~PTE_W;    // make pte read only and
+    *pte |= PTE_COW;   // mark it as cow
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
+
+    // if((mem = kalloc()) == 0)
+    //   goto err;
+    // memmove(mem, (char*)pa, PGSIZE);
+    if(mappages(new, i, PGSIZE, pa, flags) != 0){
       goto err;
     }
   }
@@ -343,26 +347,44 @@ uvmclear(pagetable_t pagetable, uint64 va)
 // Copy from kernel to user.
 // Copy len bytes from src to virtual address dstva in a given page table.
 // Return 0 on success, -1 on error.
+// Liang: points the dstva into same physical pages, and clear PTE_W bit
 int
 copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
   uint64 n, va0, pa0;
-
+  pte_t* pte;
+  uint flags;
   while(len > 0){
-    va0 = PGROUNDDOWN(dstva);
-    pa0 = walkaddr(pagetable, va0);
+    va0 = PGROUNDDOWN(dstva); //points to the same pa mapped by src
+    // pa0 = walkaddr(pagetable, va0);
+    pa0 = walkaddr(kernel_pagetable, va0); //pa mapped by src 
     if(pa0 == 0)
       return -1;
+    inc_ref((void*)pa0);//increment the ref count of phyiscal memory page  by 1.
+
+    pte = PA2PTE(pa0);
+    *pte &= ~PTE_W;
+    *pte |= PTE_COW;
+    flags = PTE_FLAGS(*pte);
+
     n = PGSIZE - (dstva - va0);
     if(n > len)
       n = len;
-    memmove((void *)(pa0 + (dstva - va0)), src, n);
+
+    if (mappages(pagetable, va0, n, pa0, flags) != 0){
+      goto err;
+    }
+    // memmove((void *)(pa0 + (dstva - va0)), src, n);
 
     len -= n;
     src += n;
     dstva = va0 + PGSIZE;
   }
   return 0;
+
+err:
+  uvmunmap(pagetable, dstva, len / PGSIZE, 1); //TODO
+  return -1;
 }
 
 // Copy from user to kernel.

@@ -65,6 +65,21 @@ usertrap(void)
     intr_on();
 
     syscall();
+  } else if (r_scause() == 15){ // Store/AMO page fault = 15
+    //Store Access Fault. Cannot write into the address
+    uint64 va = r_stval();
+    struct proc *p = myproc();
+    uint64 old_pa = walkaddr(p->pagetable, va);
+    dec_ref((void*)old_pa);
+    
+    uint64 pa = (uint64)kalloc(); //new physical page
+    if (pa == 0){
+      p->killed = 1;
+    } else{
+      printf("page fault was captured, now mapping page\n");
+      mappages(p->pagetable, va, PGSIZE, pa, PTE_W | PTE_X | PTE_R | PTE_U);
+      // p->trapframe->epc -= r_sepc(); //re-execute the STORE instruction to write data into memory
+    }
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
@@ -218,3 +233,12 @@ devintr()
   }
 }
 
+// Return 1 if pte is mapped into a cow page
+// otherwise return 0;
+// int
+// is_cow(pte_t* pte){
+//   if (*pte & PTE_COW){
+//     return 1;
+//   }
+//   return 0;
+// }
