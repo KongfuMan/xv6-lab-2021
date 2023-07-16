@@ -6,6 +6,7 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "sysinfo.h"
 
 uint64
 sys_exit(void)
@@ -94,4 +95,33 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64
+sys_trace(void){
+  // save the mask into the process struct before execute the syscall
+  int mask;
+  if(argint(0, &mask) < 0){
+    printf("Read argument error");
+    return -1;
+  }
+  myproc()->mask = mask;
+  return 0;
+}
+
+uint64
+sys_sysinfo(void){
+  uint64 dest;
+  if (argaddr(0, &dest) < 0){ //get argument addr from user space, which is passed in by user
+    printf("Get argument address error\n");
+    return -1;
+  }
+  // printf("Creating sysinfo struct.\n");
+  struct sysinfo info;
+  info.freemem = countFreeMem();
+  info.nproc = countUsedProc();
+  if(copyout(myproc()->pagetable, dest, (char*)&info, sizeof(info)) < 0){
+    return -1;
+  }
+  return 0;
 }
